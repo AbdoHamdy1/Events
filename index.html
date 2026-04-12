@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>أحداث العالم - دليلك لأحداث العالم</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        h1 { text-align: center; color: white; margin-bottom: 30px; font-size: 48px; }
+        .select-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #333; }
+        select, button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            outline: none;
+        }
+        select:focus { border-color: #667eea; }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        button:hover:not(:disabled) { background: #5a67d8; transform: scale(1.02); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .events-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .event-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            overflow: hidden;
+            transition: transform 0.3s;
+            cursor: pointer;
+        }
+        .event-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .event-image {
+            width: 100%;
+            height: 180px;
+            background-size: cover;
+            background-position: center;
+        }
+        .event-info { padding: 15px; }
+        .event-name { font-size: 18px; font-weight: bold; margin-bottom: 8px; color: #333; }
+        .event-date { color: #666; font-size: 14px; margin-bottom: 5px; }
+        .event-venue { color: #999; font-size: 12px; }
+        .loading { text-align: center; padding: 40px; font-size: 18px; color: #667eea; }
+        .error { background: #fee; color: #c33; padding: 15px; border-radius: 10px; text-align: center; }
+        @media (max-width: 768px) {
+            h1 { font-size: 32px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 دليلك لأحداث العالم</h1>
+        
+        <div class="card">
+            <div class="select-group">
+                <label>🇪🇬 اختر الدولة:</label>
+                <select id="countrySelect">
+                    <option value="">-- اختر دولة --</option>
+                </select>
+            </div>
+            
+            <div class="select-group">
+                <label>🏙️ اختر المدينة:</label>
+                <select id="citySelect" disabled>
+                    <option value="">-- اختر مدينة أولاً --</option>
+                </select>
+            </div>
+            
+            <button id="searchBtn" disabled>🔍 ابحث عن الأحداث</button>
+        </div>
+        
+        <div class="card">
+            <h3>✨ الفعاليات القادمة</h3>
+            <div id="eventsList">اختر دولة ومدينة ثم اضغط بحث</div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // 1️⃣ Ticketmaster API Key بتاعك
+        // ========================================
+        const TICKETMASTER_API_KEY = "sF7cjf3EGJLSLwcxCz4244eYlsewAtc6";
+        
+        // ========================================
+        // 2️⃣ الدول والمدن
+        // ========================================
+        const countries = ["Egypt", "UAE", "UK", "USA", "Saudi Arabia", "Qatar", "Kuwait", "Jordan", "Morocco"];
+        
+        const cities = {
+            Egypt: ["Cairo", "Alexandria", "Giza", "Luxor", "Aswan", "Hurghada", "Sharm El Sheikh"],
+            UAE: ["Dubai", "Abu Dhabi", "Sharjah", "Ajman", "Ras Al Khaimah"],
+            UK: ["London", "Manchester", "Birmingham", "Liverpool", "Edinburgh", "Glasgow"],
+            USA: ["New York", "Los Angeles", "Chicago", "Houston", "Miami", "Boston", "San Francisco", "Las Vegas"],
+            "Saudi Arabia": ["Riyadh", "Jeddah", "Mecca", "Medina", "Dammam"],
+            Qatar: ["Doha", "Al Rayyan"],
+            Kuwait: ["Kuwait City"],
+            Jordan: ["Amman", "Aqaba"],
+            Morocco: ["Casablanca", "Marrakech", "Rabat", "Fez"]
+        };
+        
+        // رموز الدول لـ Ticketmaster API
+        const countryCodes = {
+            "Egypt": "EG",
+            "UAE": "AE",
+            "UK": "GB",
+            "USA": "US",
+            "Saudi Arabia": "SA",
+            "Qatar": "QA",
+            "Kuwait": "KW",
+            "Jordan": "JO",
+            "Morocco": "MA"
+        };
+        
+        let selectedCountry = "", selectedCity = "";
+        
+        // تحميل الدول
+        function loadCountries() {
+            const countrySelect = document.getElementById('countrySelect');
+            countries.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                countrySelect.appendChild(option);
+            });
+        }
+        
+        // عند اختيار الدولة
+        document.getElementById('countrySelect').addEventListener('change', (e) => {
+            selectedCountry = e.target.value;
+            const citySelect = document.getElementById('citySelect');
+            const searchBtn = document.getElementById('searchBtn');
+            
+            if (selectedCountry && cities[selectedCountry]) {
+                citySelect.disabled = false;
+                citySelect.innerHTML = '<option value="">-- اختر مدينة --</option>';
+                cities[selectedCountry].forEach(city => {
+                    const option = document.createElement('option');
+                    option.value = city;
+                    option.textContent = city;
+                    citySelect.appendChild(option);
+                });
+                searchBtn.disabled = true;
+            } else {
+                citySelect.disabled = true;
+                citySelect.innerHTML = '<option value="">-- اختر مدينة أولاً --</option>';
+                searchBtn.disabled = true;
+            }
+        });
+        
+        // عند اختيار المدينة
+        document.getElementById('citySelect').addEventListener('change', (e) => {
+            selectedCity = e.target.value;
+            const searchBtn = document.getElementById('searchBtn');
+            searchBtn.disabled = !selectedCity;
+        });
+        
+        // ========================================
+        // 3️⃣ جلب الأحداث من Ticketmaster API
+        // ========================================
+        async function getEventsFromTicketmaster(city, country) {
+            const countryCode = countryCodes[country] || "US";
+            const url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_API_KEY}&city=${encodeURIComponent(city)}&countryCode=${countryCode}&size=24&sort=date,asc`;
+            
+            console.log("Fetching:", url);
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data._embedded && data._embedded.events) {
+                    return data._embedded.events;
+                }
+                return [];
+            } catch(error) {
+                console.error("Ticketmaster API Error:", error);
+                return [];
+            }
+        }
+        
+        // ========================================
+        // 4️⃣ البحث عن الأحداث
+        // ========================================
+        document.getElementById('searchBtn').addEventListener('click', async () => {
+            if (!selectedCity || !selectedCountry) return;
+            
+            const eventsListDiv = document.getElementById('eventsList');
+            eventsListDiv.innerHTML = '<div class="loading">⏳ جاري البحث عن الأحداث من Ticketmaster...</div>';
+            
+            try {
+                const events = await getEventsFromTicketmaster(selectedCity, selectedCountry);
+                
+                if (events && events.length > 0) {
+                    displayEvents(events);
+                } else {
+                    eventsListDiv.innerHTML = '<div class="error">📭 لا توجد أحداث حالياً في هذه المدينة</div>';
+                    // عرض بيانات تجريبية بديلة
+                    setTimeout(() => {
+                        const mockEvents = getMockEvents(selectedCity, selectedCountry);
+                        displayMockEvents(mockEvents);
+                    }, 500);
+                }
+            } catch(error) {
+                eventsListDiv.innerHTML = '<div class="error">❌ حدث خطأ في الاتصال بـ Ticketmaster</div>';
+                const mockEvents = getMockEvents(selectedCity, selectedCountry);
+                displayMockEvents(mockEvents);
+            }
+        });
+        
+        // ========================================
+        // 5️⃣ بيانات تجريبية (لو الـ API مش جاب حاجة)
+        // ========================================
+        function getMockEvents(city, country) {
+            return [
+                {
+                    name: `🎨 معرض فني دولي في ${city}`,
+                    dates: { start: { localDate: "2026-05-15" } },
+                    _embedded: { venues: [{ name: "مركز الفنون", city: { name: city } }] },
+                    url: "#",
+                    images: []
+                },
+                {
+                    name: `🎵 حفلة موسيقية - ليلة في ${city}`,
+                    dates: { start: { localDate: "2026-05-20" } },
+                    _embedded: { venues: [{ name: "المسرح الكبير", city: { name: city } }] },
+                    url: "#",
+                    images: []
+                },
+                {
+                    name: `💻 مؤتمر التكنولوجيا في ${city}`,
+                    dates: { start: { localDate: "2026-06-01" } },
+                    _embedded: { venues: [{ name: "مركز المؤتمرات", city: { name: city } }] },
+                    url: "#",
+                    images: []
+                },
+                {
+                    name: `🍽️ مهرجان الطعام العالمي - ${city}`,
+                    dates: { start: { localDate: "2026-06-10" } },
+                    _embedded: { venues: [{ name: "المنطقة السياحية", city: { name: city } }] },
+                    url: "#",
+                    images: []
+                },
+                {
+                    name: `⚽ بطولة رياضية في ${city}`,
+                    dates: { start: { localDate: "2026-06-15" } },
+                    _embedded: { venues: [{ name: "الاستاد الرياضي", city: { name: city } }] },
+                    url: "#",
+                    images: []
+                }
+            ];
+        }
+        
+        function displayMockEvents(events) {
+            const container = document.getElementById('eventsList');
+            container.innerHTML = `
+                <div style="background: #e8f4fd; padding: 10px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-size: 14px;">
+                    ⚠️ عرض أحداث تجريبية (لم نجد أحداث حقيقية من Ticketmaster في هذه المدينة)
+                </div>
+                <div class="events-grid">
+                    ${events.map(event => `
+                        <div class="event-card" onclick="alert('${event.name}\n📅 ${event.dates.start.localDate}\n📍 ${event._embedded.venues[0].name}')">
+                            <div class="event-image" style="background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; font-size: 48px;">
+                                🎉
+                            </div>
+                            <div class="event-info">
+                                <div class="event-name">${event.name}</div>
+                                <div class="event-date">📅 ${event.dates.start.localDate}</div>
+                                <div class="event-venue">📍 ${event._embedded.venues[0].name}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        // ========================================
+        // 6️⃣ عرض الأحداث الحقيقية
+        // ========================================
+        function displayEvents(events) {
+            const container = document.getElementById('eventsList');
+            
+            container.innerHTML = `
+                <div class="events-grid">
+                    ${events.map(event => {
+                        const eventName = event.name || "حدث جديد";
+                        const eventDate = event.dates?.start?.localDate || "تاريخ غير محدد";
+                        const venueName = event._embedded?.venues?.[0]?.name || "مكان غير محدد";
+                        const imageUrl = event.images?.[0]?.url || "";
+                        
+                        return `
+                            <div class="event-card" onclick="window.open('${event.url || "#"}', '_blank')">
+                                <div class="event-image" style="${imageUrl ? `background-image: url('${imageUrl}')` : 'background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; font-size: 48px;'}">
+                                    ${!imageUrl ? '🎉' : ''}
+                                </div>
+                                <div class="event-info">
+                                    <div class="event-name">${eventName}</div>
+                                    <div class="event-date">📅 ${eventDate}</div>
+                                    <div class="event-venue">📍 ${venueName}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+        
+        // بدء التطبيق
+        loadCountries();
+    </script>
+</body>
+</html>
