@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>أحداث العالم - تقويم الفعاليات</title>
-     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="index.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>📅 أحداث العالم</h1>
-            <p>تقويم الفعاليات - كل حدث وصورته</p>
+            <p>تقويم الفعاليات</p>
         </div>
 
         <div class="filters-card">
@@ -44,22 +44,14 @@
         <div id="calendarContainer"></div>
     </div>
 
-    <div class="admin-mode-btn">
-        <button onclick="promptAdminPassword()">🔒 وضع المشرف</button>
-    </div>
-
-    <div id="unblockBtnContainer" style="display: none;">
-        <button class="admin-unblock-btn" onclick="showBlockedEventsList()">📋 إدارة الأحداث المحظورة</button>
-    </div>
-
     <div id="modal" class="modal">
         <div class="modal-content">
             <h3 id="modalDate">📅 الأحداث</h3>
-            <div id="modalEventsList" class="events-list-modal"></div>
-            <button class="close-modal-btn" onclick="closeModal()">إغلاق</button>
+            <div id="modalEventsList"></div>
+            <button onclick="closeModal()">إغلاق</button>
         </div>
     </div>
 
     <script src="index.js"></script>
-    </body>
+</body>
 </html>
